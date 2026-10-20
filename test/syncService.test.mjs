@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  buildDishRecord, filterAndSortDishes, hasDishNameConflict, makeDishImageRecords, preparationTimeKind,
+  buildDishRecord, filterAndSortDishes, hasDishNameConflict, makeDishImageRecords, normalizeDishImages, preparationTimeKind,
   resolveDefaultLanguage, syncPendingChanges, upsertDish, validateDishDraft,
 } from '../syncService.mjs';
 
@@ -112,8 +112,25 @@ test('image selection keeps at most one thumbnail, and empty image lists stay em
   const images = makeDishImageRecords([' https://one.test/a ', '', 'https://two.test/b'], 99, studentId);
   assert.equal(images.length, 2);
   assert.equal(images.filter((image) => image[`${studentId}_IsThumbnail`]).length, 1);
-  assert.equal(images[1][`${studentId}_IsThumbnail`], true);
+  assert.equal(images[0][`${studentId}_IsThumbnail`], true);
   assert.deepEqual(makeDishImageRecords([], 0, studentId), []);
+  const afterRemovingBlankUrl = makeDishImageRecords(['', 'https://cover.test/image', 'https://other.test/image'], 1, studentId);
+  assert.equal(afterRemovingBlankUrl[0][`${studentId}_IsThumbnail`], true);
+  assert.equal(afterRemovingBlankUrl.filter((image) => image[`${studentId}_IsThumbnail`]).length, 1);
+});
+
+test('remote image data drops empty URLs and normalizes multiple thumbnail flags', () => {
+  const images = normalizeDishImages([
+    { [`${studentId}_ImageUrl`]: '', [`${studentId}_IsThumbnail`]: true },
+    { [`${studentId}_ImageUrl`]: ' https://one.test/a ', [`${studentId}_IsThumbnail`]: false },
+    { [`${studentId}_ImageUrl`]: 'https://two.test/b', [`${studentId}_IsThumbnail`]: true },
+    { [`${studentId}_ImageUrl`]: 'https://three.test/c', [`${studentId}_IsThumbnail`]: true },
+  ], studentId);
+  assert.equal(images.length, 3);
+  assert.equal(images[0][`${studentId}_ImageUrl`], 'https://one.test/a');
+  assert.equal(images.filter((image) => image[`${studentId}_IsThumbnail`]).length, 1);
+  assert.equal(images[1][`${studentId}_IsThumbnail`], true);
+  assert.deepEqual(normalizeDishImages([], studentId), []);
 });
 
 test('preparation labels use the 15-minute boundary', () => {

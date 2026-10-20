@@ -49,15 +49,33 @@ export function filterAndSortDishes({
 
 export function makeDishImageRecords(imageUrls, coverIndex, studentId) {
   const field = (name) => `${studentId}_${name}`;
-  const urls = (Array.isArray(imageUrls) ? imageUrls : [])
-    .map((url) => String(url ?? '').trim())
-    .filter(Boolean);
-  if (urls.length === 0) return [];
+  const entries = (Array.isArray(imageUrls) ? imageUrls : [])
+    .map((url, sourceIndex) => ({ url: String(url ?? '').trim(), sourceIndex }))
+    .filter((entry) => entry.url);
+  if (entries.length === 0) return [];
   const requestedCover = Number.isInteger(coverIndex) ? coverIndex : 0;
-  const selectedCover = Math.min(Math.max(requestedCover, 0), urls.length - 1);
-  return urls.map((url, index) => ({
-    [field('ImageUrl')]: url,
+  let selectedCover = entries.findIndex((entry) => entry.sourceIndex === requestedCover);
+  if (selectedCover < 0) selectedCover = 0;
+  return entries.map((entry, index) => ({
+    [field('ImageUrl')]: entry.url,
     [field('IsThumbnail')]: index === selectedCover,
+  }));
+}
+
+export function normalizeDishImages(images, studentId) {
+  const field = (name) => `${studentId}_${name}`;
+  const validImages = (Array.isArray(images) ? images : [])
+    .map((image) => ({
+      url: String(image?.[field('ImageUrl')] ?? '').trim(),
+      thumbnail: Boolean(image?.[field('IsThumbnail')]),
+    }))
+    .filter((image) => image.url);
+  if (validImages.length === 0) return [];
+  const thumbnailIndex = validImages.findIndex((image) => image.thumbnail);
+  const selectedThumbnail = thumbnailIndex < 0 ? 0 : thumbnailIndex;
+  return validImages.map((image, index) => ({
+    [field('ImageUrl')]: image.url,
+    [field('IsThumbnail')]: index === selectedThumbnail,
   }));
 }
 

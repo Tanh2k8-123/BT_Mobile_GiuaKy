@@ -7,7 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import {
-  buildDishRecord, filterAndSortDishes, hasDishNameConflict, preparationTimeKind,
+  buildDishRecord, filterAndSortDishes, hasDishNameConflict, normalizeDishImages, preparationTimeKind,
   resolveDefaultLanguage, syncPendingChanges, upsertDish, validateDishDraft,
 } from './syncService.mjs';
 
@@ -107,17 +107,14 @@ function fromRemoteDish(item, validCategoryIds) {
   const price = Number(item[F('Price')]);
   const preparationTime = Number(item[F('PreparationTime')]);
   if (!name || !Number.isFinite(price) || price <= 0 || !Number.isInteger(preparationTime) || preparationTime <= 0) return null;
-  const images = Array.isArray(item[F('DishImage')]) ? item[F('DishImage')] : [];
-  const thumbnailIndex = images.findIndex((photo) => photo?.[F('IsThumbnail')]);
+  const images = normalizeDishImages(item[F('DishImage')], SID);
   return {
     [F('Id')]: item[F('Id')], [F('Name')]: name,
     [F('Price')]: price, [F('PreparationTime')]: preparationTime,
     [F('IsAvailable')]: Boolean(item[F('IsAvailable')]), [F('Description')]: item[F('Description')] || '',
     [F('DescriptionEn')]: item[F('DescriptionEn')] || '',
     [F('DishCategoryId')]: item[F('DishCategoryId')],
-    [F('DishImage')]: images.map((photo, index) => ({
-      [F('ImageUrl')]: photo?.[F('ImageUrl')] || '', [F('IsThumbnail')]: index === thumbnailIndex,
-    })), [F('Dirty')]: false,
+    [F('DishImage')]: images, [F('Dirty')]: false,
   };
 }
 
