@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildDishRecord, filterAndSortDishes, hasDishNameConflict, makeDishImageRecords, normalizeDishImages, preparationTimeKind,
-  resolveDefaultLanguage, syncPendingChanges, upsertDish, validateDishDraft,
+  resolveDefaultLanguage, selectDishThumbnail, syncPendingChanges, upsertDish, validateDishDraft,
 } from '../syncService.mjs';
 
 const studentId = 'BIT240015';
@@ -131,6 +131,15 @@ test('remote image data drops empty URLs and normalizes multiple thumbnail flags
   assert.equal(images.filter((image) => image[`${studentId}_IsThumbnail`]).length, 1);
   assert.equal(images[1][`${studentId}_IsThumbnail`], true);
   assert.deepEqual(normalizeDishImages([], studentId), []);
+});
+
+test('choosing a cover moves the single thumbnail flag to the selected image', () => {
+  const images = makeDishImageRecords(['https://one.test/a', 'https://two.test/b'], 0, studentId);
+  const selected = selectDishThumbnail(images, 1, studentId);
+  assert.equal(selected[0][`${studentId}_IsThumbnail`], false);
+  assert.equal(selected[1][`${studentId}_IsThumbnail`], true);
+  assert.equal(selected.filter((image) => image[`${studentId}_IsThumbnail`]).length, 1);
+  assert.equal(selectDishThumbnail(images, 9, studentId), null);
 });
 
 test('preparation labels use the 15-minute boundary', () => {

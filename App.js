@@ -8,7 +8,7 @@ import NetInfo from '@react-native-community/netinfo';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import {
   buildDishRecord, filterAndSortDishes, hasDishNameConflict, normalizeDishImages, preparationTimeKind,
-  resolveDefaultLanguage, syncPendingChanges, upsertDish, validateDishDraft,
+  resolveDefaultLanguage, selectDishThumbnail, syncPendingChanges, upsertDish, validateDishDraft,
 } from './syncService.mjs';
 
 // Every persisted table, field, and storage key is prefixed with the student ID.
@@ -336,6 +336,18 @@ export default function App() {
     setDeleteTarget(dish);
   }
 
+  function setDishThumbnail(dish, index) {
+    const images = selectDishThumbnail(dish[F('DishImage')] || [], index, SID);
+    if (!images) return;
+    const dishId = dish[F('Id')];
+    const updated = { ...dish, [F('DishImage')]: images, [F('Dirty')]: true };
+    setSelected(updated);
+    setDishes((current) => current.map((item) => item[F('Id')] === dishId ? updated : item));
+    setPending((current) => [...current.filter((change) => change.id !== dishId), {
+      type: 'upsert', id: dishId, revision: Date.now(),
+    }]);
+  }
+
   function cancelDelete() {
     setDeleteTarget(null);
     setModal(deleteReturnModal);
@@ -422,7 +434,20 @@ export default function App() {
             {form.images.map((url, index) => <View key={`${index}-${url}`} style={styles.imageField}><TextInput style={[styles.input, { flex: 1 }]} value={url} onChangeText={(value) => updateForm({ images: form.images.map((item, i) => i === index ? value : item) })} autoCapitalize="none" placeholder={t.image} /><Pressable onPress={() => updateForm({ images: form.images.filter((_, i) => i !== index), cover: Math.max(0, form.cover - (index <= form.cover ? 1 : 0)) })}><Text style={styles.remove}>×</Text></Pressable></View>)}
             <Field label={t.addImage} value={form.newImage || ''} onChangeText={(newImage) => updateForm({ newImage })} autoCapitalize="none" />
             <Pressable style={styles.outlineButton} onPress={() => { if (form.newImage?.trim()) updateForm({ images: [...form.images, form.newImage.trim()], cover: form.images.length, newImage: '' }); }}><Text style={styles.outlineText}>＋ {t.addImage}</Text></Pressable>
-            {form.images.map((_, index) => <Pressable key={`cover-${index}`} onPress={() => updateForm({ cover: index })}><Text style={styles.coverChoice}>{index === form.cover ? '◉' : '○'} {t.setCover} {index + 1}</Text></Pressable>)}
+            {form.images.map((_, index) => {
+              const isCover = index === form.cover;
+              return <Pressable
+                key={`cover-${index}`}
+                accessibilityRole="button"
+                accessibilityState={{ selected: isCover }}
+                style={[styles.coverChoiceButton, isCover && styles.coverChoiceActive]}
+                onPress={() => updateForm({ cover: index })}
+              >
+                <Text style={[styles.coverChoiceText, isCover && styles.coverChoiceActiveText]}>
+                  {isCover ? `✓ ${t.cover}` : `○ ${t.setCover} ${index + 1}`}
+                </Text>
+              </Pressable>;
+            })}
             <View style={styles.filterRow}><Text style={styles.label}>{t.available}</Text><Switch value={form.available} onValueChange={(available) => updateForm({ available })} trackColor={{ true: '#1f6650' }} /></View>
             <Pressable style={styles.primaryButton} onPress={saveDish}><Text style={styles.primaryText}>{t.save}</Text></Pressable>
             {!!selected && <Pressable style={styles.deleteButton} onPress={() => deleteDish(selected)}><Text style={styles.deleteText}>{t.delete}</Text></Pressable>}
@@ -433,7 +458,26 @@ export default function App() {
       <Modal visible={modal === 'details'} animationType="slide" onRequestClose={() => setModal(null)}>
         <SafeAreaView style={styles.modalSafe}><View style={styles.modalHeader}><Pressable onPress={() => setModal(null)}><Text style={styles.close}>{t.close}</Text></Pressable><Text style={styles.modalTitle}>{t.details}</Text><Pressable onPress={() => openForm(selected)}><Text style={styles.close}>{t.editAction}</Text></Pressable></View>
           {selected && <ScrollView contentContainerStyle={styles.detail}>
-            {(selected[F('DishImage')] || []).map((photo, index) => <View key={photo[F('ImageUrl')] + index} style={styles.detailPhotoWrap}><Image source={{ uri: photo[F('ImageUrl')] }} style={styles.detailPhoto} /><View style={styles.photoCaption}><Text style={styles.cardDescription}>{photo[F('IsThumbnail')] ? t.cover : `${t.images} ${index + 1}`}</Text><Pressable onPress={() => { const images = selected[F('DishImage')].map((item, i) => ({ ...item, [F('IsThumbnail')]: i === index })); const updated = { ...selected, [F('DishImage')]: images, [F('Dirty')]: true }; setSelected(updated); persistChange(dishes.map((d) => d[F('Id')] === updated[F('Id')] ? updated : d), { type: 'upsert', id: updated[F('Id')] }); }}><Text style={styles.close}>{t.setCover}</Text></Pressable></View></View>)}
+            {(selected[F('DishImage')] || []).map((photo, index) => {
+              const isCover = photo[F('IsThumbnail')];
+              return <View key={photo[F('ImageUrl')] + index} style={styles.detailPhotoWrap}>
+                <Image source={{ uri: photo[F('ImageUrl')] }} style={styles.detailPhoto} />
+                <View style={styles.photoCaption}>
+                  <Text style={styles.cardDescription}>{isCover ? t.cover : `${t.images} ${index + 1}`}</Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={isCover ? t.cover : t.setCover}
+                    accessibilityState={{ selected: isCover }}
+                    style={[styles.detailCoverButton, isCover && styles.coverChoiceActive]}
+                    onPress={() => setDishThumbnail(selected, index)}
+                  >
+                    <Text style={[styles.coverChoiceText, isCover && styles.coverChoiceActiveText]}>
+                      {isCover ? `✓ ${t.cover}` : t.setCover}
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>;
+            })}
             {!(selected[F('DishImage')] || []).length && <Text style={styles.noImages}>{t.noImages}</Text>}
             <Text style={styles.categoryTag}>{categoryName(selected[F('DishCategoryId')]).toUpperCase()}</Text><Text style={styles.detailTitle}>{selected[F('Name')]}</Text>
             <Text style={styles.price}>{Number(selected[F('Price')]).toLocaleString()} <Text style={styles.currency}>VND</Text></Text>
@@ -489,6 +533,6 @@ const styles = StyleSheet.create({
   confirmDeleteText: { color: '#fff', fontSize: 13, fontWeight: '800' },
   sectionHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 15, marginBottom: 10 }, sectionTitle: { color: '#78847c', fontSize: 11, letterSpacing: 1.3, fontWeight: '800' }, count: { color: '#acb2ac' }, addButton: { backgroundColor: '#205c48', borderRadius: 11, paddingHorizontal: 12, paddingVertical: 9 }, addText: { color: '#fff', fontWeight: '700', fontSize: 12 },
   card: { backgroundColor: '#fff', borderRadius: 17, overflow: 'hidden', marginBottom: 12, borderWidth: 1, borderColor: '#eceee8' }, cardImage: { width: '100%', height: 155, backgroundColor: '#e8ede6' }, imagePlaceholder: { alignItems: 'center', justifyContent: 'center' }, cardBody: { padding: 14 }, cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, categoryTag: { color: '#4c7a62', fontSize: 9, letterSpacing: 1.1, fontWeight: '800' }, status: { fontSize: 9, fontWeight: '700', borderRadius: 9, overflow: 'hidden', paddingHorizontal: 8, paddingVertical: 4 }, statusOn: { color: '#27674c', backgroundColor: '#e8f3e9' }, statusOff: { color: '#967343', backgroundColor: '#f7f0e3' }, dishName: { color: '#1b3025', fontSize: 19, fontWeight: '800', marginTop: 6 }, cardDescription: { color: '#8a948d', fontSize: 11, marginTop: 4 }, cardBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }, price: { color: '#1f6049', fontSize: 15, fontWeight: '800' }, currency: { color: '#8c9a90', fontSize: 9, fontWeight: '700' }, time: { color: '#8a948d', fontSize: 10 }, empty: { alignItems: 'center', padding: 44 }, emptyIcon: { color: '#acb8ad', fontSize: 40 }, emptyText: { color: '#7c8a7f', marginTop: 8 }, footer: { textAlign: 'center', color: '#abb2aa', fontSize: 10, marginTop: 12, letterSpacing: 1 },
-  modalSafe: { flex: 1, backgroundColor: '#f7f7f2' }, modalHeader: { minHeight: 56, paddingHorizontal: 18, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderColor: '#e8ebe4' }, modalTitle: { fontSize: 16, color: '#1c3025', fontWeight: '800' }, close: { color: '#28634d', fontWeight: '700', fontSize: 13 }, form: { padding: 20, paddingBottom: 40 }, field: { marginBottom: 14 }, label: { color: '#6e7b71', fontSize: 11, fontWeight: '700', marginBottom: 7 }, input: { minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: '#e4e8e1', backgroundColor: '#fff', paddingHorizontal: 13, color: '#24382d', fontSize: 13 }, multiline: { minHeight: 85, paddingTop: 12, textAlignVertical: 'top' }, formError: { color: '#a5483c', fontSize: 12, lineHeight: 18, marginBottom: 12 }, twoFields: { flexDirection: 'row', gap: 10 }, imageField: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }, remove: { color: '#b95445', fontSize: 24, paddingHorizontal: 5 }, outlineButton: { borderWidth: 1, borderColor: '#b7c9bd', borderRadius: 11, alignItems: 'center', padding: 11, marginTop: 3 }, outlineText: { color: '#28634d', fontWeight: '700', fontSize: 12 }, coverChoice: { color: '#557260', fontSize: 11, paddingVertical: 7 }, primaryButton: { backgroundColor: '#205c48', borderRadius: 13, alignItems: 'center', padding: 15, marginTop: 20 }, primaryText: { color: '#fff', fontWeight: '800' }, deleteButton: { borderWidth: 1, borderColor: '#e5c9c3', borderRadius: 12, alignItems: 'center', padding: 13, marginTop: 12 }, deleteText: { color: '#a5483c', fontWeight: '700' },
+  modalSafe: { flex: 1, backgroundColor: '#f7f7f2' }, modalHeader: { minHeight: 56, paddingHorizontal: 18, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderColor: '#e8ebe4' }, modalTitle: { fontSize: 16, color: '#1c3025', fontWeight: '800' }, close: { color: '#28634d', fontWeight: '700', fontSize: 13 }, form: { padding: 20, paddingBottom: 40 }, field: { marginBottom: 14 }, label: { color: '#6e7b71', fontSize: 11, fontWeight: '700', marginBottom: 7 }, input: { minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: '#e4e8e1', backgroundColor: '#fff', paddingHorizontal: 13, color: '#24382d', fontSize: 13 }, multiline: { minHeight: 85, paddingTop: 12, textAlignVertical: 'top' }, formError: { color: '#a5483c', fontSize: 12, lineHeight: 18, marginBottom: 12 }, twoFields: { flexDirection: 'row', gap: 10 }, imageField: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }, remove: { color: '#b95445', fontSize: 24, paddingHorizontal: 5 }, outlineButton: { borderWidth: 1, borderColor: '#b7c9bd', borderRadius: 11, alignItems: 'center', padding: 11, marginTop: 3 }, outlineText: { color: '#28634d', fontWeight: '700', fontSize: 12 }, coverChoiceButton: { borderWidth: 1, borderColor: '#dce2d9', backgroundColor: '#fff', borderRadius: 11, alignItems: 'center', paddingVertical: 11, paddingHorizontal: 14, marginBottom: 8 }, coverChoiceActive: { backgroundColor: '#e8f3e9', borderColor: '#70a286' }, coverChoiceText: { color: '#28634d', fontSize: 12, fontWeight: '700' }, coverChoiceActiveText: { color: '#1f6047' }, detailCoverButton: { borderWidth: 1, borderColor: '#dce2d9', backgroundColor: '#fff', borderRadius: 10, alignItems: 'center', paddingVertical: 9, paddingHorizontal: 12 }, primaryButton: { backgroundColor: '#205c48', borderRadius: 13, alignItems: 'center', padding: 15, marginTop: 20 }, primaryText: { color: '#fff', fontWeight: '800' }, deleteButton: { borderWidth: 1, borderColor: '#e5c9c3', borderRadius: 12, alignItems: 'center', padding: 13, marginTop: 12 }, deleteText: { color: '#a5483c', fontWeight: '700' },
   detail: { padding: 20, paddingBottom: 40 }, detailPhotoWrap: { backgroundColor: '#fff', borderRadius: 15, overflow: 'hidden', marginBottom: 12 }, detailPhoto: { height: 225, backgroundColor: '#e8ede6' }, photoCaption: { padding: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, noImages: { color: '#8a948d', paddingVertical: 15 }, detailTitle: { color: '#1b3025', fontSize: 27, fontWeight: '800', marginTop: 7 }, detailMeta: { color: '#748278', marginTop: 10 }, detailDescription: { color: '#54655a', fontSize: 14, lineHeight: 22, marginTop: 18 },
 });

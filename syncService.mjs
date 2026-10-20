@@ -79,6 +79,13 @@ export function normalizeDishImages(images, studentId) {
   }));
 }
 
+export function selectDishThumbnail(images, selectedIndex, studentId) {
+  if (!Array.isArray(images) || !Number.isInteger(selectedIndex)
+    || selectedIndex < 0 || selectedIndex >= images.length) return null;
+  const thumbnailField = `${studentId}_IsThumbnail`;
+  return images.map((image, index) => ({ ...image, [thumbnailField]: index === selectedIndex }));
+}
+
 export function buildDishRecord({
   studentId, id, name, price, preparationTime, isAvailable, description, descriptionEn,
   categoryId, imageUrls = [], coverIndex = 0,
