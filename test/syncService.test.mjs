@@ -176,6 +176,19 @@ test('form saves the selected stored category and edits the same dish instead of
   assert.equal(afterEdit[0][`${studentId}_DishCategoryId`], 'cat-rice');
 });
 
+test('create form stores several ImageUrl values and exactly the chosen cover', () => {
+  const dish = buildDishRecord({
+    studentId, id: 'dish-images-1', name: 'Phở nhiều ảnh', price: 65000, preparationTime: 20,
+    isAvailable: true, description: 'Mô tả', descriptionEn: 'Description', categoryId: 'cat-noodles',
+    imageUrls: ['https://images.test/one.jpg', 'https://images.test/two.jpg'], coverIndex: 1,
+  });
+  const images = dish[`${studentId}_DishImage`];
+  assert.deepEqual(images.map((image) => image[`${studentId}_ImageUrl`]), [
+    'https://images.test/one.jpg', 'https://images.test/two.jpg',
+  ]);
+  assert.deepEqual(images.map((image) => image[`${studentId}_IsThumbnail`]), [false, true]);
+});
+
 test('English is the migrated default while a later Vietnamese choice persists', () => {
   assert.equal(resolveDefaultLanguage('vi', 1), 'en');
   assert.equal(resolveDefaultLanguage('vi', 2), 'vi');

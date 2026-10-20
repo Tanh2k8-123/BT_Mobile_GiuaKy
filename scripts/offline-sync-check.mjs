@@ -18,7 +18,10 @@ const dish = {
   [`${studentId}_Description`]: 'Bản ghi tạm để kiểm tra luồng offline.',
   [`${studentId}_DescriptionEn`]: 'Temporary record for offline sync verification.',
   [categoryField]: 'cat-noodles',
-  [`${studentId}_DishImage`]: [],
+  [`${studentId}_DishImage`]: [
+    { [`${studentId}_ImageUrl`]: 'https://images.test/one.jpg', [`${studentId}_IsThumbnail`]: true },
+    { [`${studentId}_ImageUrl`]: 'https://images.test/two.jpg', [`${studentId}_IsThumbnail`]: false },
+  ],
   [`${studentId}_Dirty`]: true,
 };
 
@@ -53,14 +56,21 @@ async function main() {
     const created = await syncPendingChanges({ ...common, online: true });
     assert.equal(created.error, null, 'reconnect should upload the queued dish');
     assert.equal(created.remaining.length, 0);
-    assert.equal((await findRemote()).length, 1, 'create should produce one remote record');
+    const createdRecords = await findRemote();
+    assert.equal(createdRecords.length, 1, 'create should produce one remote record');
+    assert.equal(createdRecords[0][`${studentId}_DishImage`].length, 2, 'both image URLs should sync');
+    assert.equal(createdRecords[0][`${studentId}_DishImage`].filter((image) => image[`${studentId}_IsThumbnail`]).length, 1);
 
     dish[nameField] = 'Món kiểm tra đã sửa khi offline';
+    dish[`${studentId}_DishImage`] = dish[`${studentId}_DishImage`].map((image, index) => ({
+      ...image, [`${studentId}_IsThumbnail`]: index === 1,
+    }));
     const edited = await syncPendingChanges({ ...common, pending: [{ ...pending[0], revision: Date.now() + 1 }], online: true });
     assert.equal(edited.error, null, 'offline edit should update the remote record');
     const records = await findRemote();
     assert.equal(records.length, 1, 'edit should not create a duplicate');
     assert.equal(records[0][nameField], dish[nameField]);
+    assert.deepEqual(records[0][`${studentId}_DishImage`].map((image) => image[`${studentId}_IsThumbnail`]), [false, true]);
 
     const removed = await syncPendingChanges({
       ...common, pending: [{ type: 'delete', id: testId, revision: Date.now() + 2 }], online: true,
