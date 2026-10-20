@@ -52,6 +52,8 @@ Resource `DishCategory` dùng `BIT240015_Id`, `BIT240015_Name`, `BIT240015_Descr
 
 ### Video 1 – Demo ứng dụng
 
+https://drive.google.com/file/d/1LxeVlZeIKksewWlBLbiMtjofQEqpNgN2/view?usp=sharing
+
 1. Mở app, chỉ tên `BIT240015_FoodManager` và mã MSSV trên giao diện.
 2. Mở món để trình bày chi tiết, thời gian Quick/Regular, trạng thái và nhiều ảnh; đổi ảnh đại diện.
 3. Thêm món mới, chọn loại món, nhập giá/thời gian và hai URL ảnh; lưu, mở lại và sửa món.
