@@ -63,6 +63,8 @@ https://drive.google.com/file/d/1LxeVlZeIKksewWlBLbiMtjofQEqpNgN2/view?usp=shari
 
 ### Video 2 – Thuyết minh mã nguồn
 
+https://drive.google.com/file/d/1i5J-QArgS1kRjnh7RBvR5bj6uwzNmpzU/view?usp=sharing
+
 Gợi ý lời trình bày: “Project dùng React Native và Expo. `SID` là BIT240015; `KEYS` lưu món, loại món, ngôn ngữ và hàng đợi offline bằng các khóa có tiền tố MSSV. Mỗi món có ID, tên, giá, thời gian chế biến, trạng thái, mô tả tiếng Việt, mô tả tiếng Anh, ID loại món và danh sách ảnh; quan hệ món–loại được giữ qua `BIT240015_DishCategoryId`. Hàm `saveDish` kiểm tra tên, giá, thời gian, loại hợp lệ và tên trùng trong cùng loại; danh sách hỗ trợ tìm kiếm, lọc đồng thời và sắp xếp. AsyncStorage giữ dữ liệu để app vẫn dùng offline. NetInfo phát hiện mạng; các thay đổi được đưa vào hàng đợi rồi tự gửi lên MockAPI khi có mạng. ID nghiệp vụ ổn định `BIT240015_Id` giúp cập nhật lại đúng record và tránh tạo trùng; ID nội bộ MockAPI chỉ dùng cho URL cập nhật/xóa. App mặc định English; nút ngôn ngữ đổi nhãn và hiển thị mô tả bản dịch.”
 
 Trong lúc nói, mở `App.js` và chỉ lần lượt `SID`/`KEYS`, hai model seed, `fromRemoteDish`/`toRemote`, kiểm tra trong `saveDish`, lọc/sắp xếp, hàng đợi và listener NetInfo. Sau đó mở `README.md` để nêu hai route MockAPI được cung cấp. Quay màn hình trực tiếp trên máy thật hoặc emulator; lưu hai video riêng theo thời hạn trên LMS.
